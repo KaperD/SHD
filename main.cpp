@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <cstring>
 #include <cassert>
+#include <cmath>
 
 #include "lz4.h"
 #include "zstd.h"
@@ -45,37 +46,55 @@ struct Result {
 };
 
 Result testLZ4(char* data, char* compressed_data, char* decompressed_data, int length) {
-    std::clock_t begin = clock();
-    int compressed_size = LZ4_compress_default(data, compressed_data, length, length);
-    LZ4_decompress_safe(compressed_data, decompressed_data, compressed_size, length);
-    std::clock_t end = clock();
+    constexpr int t = 10;
+    std::clock_t result = 0;
+    int compressed_size;
+    for (int k = 0; k < t; ++k) {
+        std::clock_t begin = clock();
+        compressed_size = LZ4_compress_default(data, compressed_data, length, length);
+        LZ4_decompress_safe(compressed_data, decompressed_data, compressed_size, length);
+        std::clock_t end = clock();
+        result += end - begin;
+    }
 
     return {
-        ((end - begin) * 1000) / CLOCKS_PER_SEC,
+        static_cast<long long>(std::round((double) result / t / CLOCKS_PER_SEC * 1000)),
         (double)length / compressed_size
     };
 }
 
 Result testZSTD1(char* data, char* compressed_data, char* decompressed_data, int length) {
-    std::clock_t begin = clock();
-    std::size_t compressed_size = ZSTD_compress(compressed_data, length, data, length, 1);
-    ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
-    std::clock_t end = clock();
+    constexpr int t = 10;
+    std::clock_t result = 0;
+    unsigned long compressed_size;
+    for (int k = 0; k < t; ++k) {
+        std::clock_t begin = clock();
+        compressed_size = ZSTD_compress(compressed_data, length, data, length, 1);
+        ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
+        std::clock_t end = clock();
+        result += end - begin;
+    }
 
     return {
-            ((end - begin) * 1000) / CLOCKS_PER_SEC,
+            static_cast<long long>(std::round((double) result / t / CLOCKS_PER_SEC * 1000)),
             (double)length / (double)compressed_size
     };
 }
 
 Result testZSTD7(char* data, char* compressed_data, char* decompressed_data, int length) {
-    std::clock_t begin = clock();
-    std::size_t compressed_size = ZSTD_compress(compressed_data, length, data, length, 7);
-    ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
-    std::clock_t end = clock();
+    constexpr int t = 10;
+    std::clock_t result = 0;
+    unsigned long compressed_size;
+    for (int k = 0; k < t; ++k) {
+        std::clock_t begin = clock();
+        compressed_size = ZSTD_compress(compressed_data, length, data, length, 7);
+        ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
+        std::clock_t end = clock();
+        result += end - begin;
+    }
 
     return {
-            ((end - begin) * 1000) / CLOCKS_PER_SEC,
+            static_cast<long long>(std::round((double) result / t / CLOCKS_PER_SEC * 1000)),
             (double)length / (double)compressed_size
     };
 }
