@@ -16,23 +16,23 @@ enum Algorithm {
 
 void testCorrectness(std::filesystem::path& path, Algorithm algorithm) {
     std::ifstream is(path, std::ifstream::in | std::ifstream::binary);
-    auto size = (int) file_size(path);
-    char* data = static_cast<char *>(malloc(size));
-    char* compressed_data = static_cast<char *>(malloc(size));
-    char* decompressed_data = static_cast<char *>(malloc(size));
-    is.read(data, size);
+    auto data_size = (int) file_size(path);
+    char* data = static_cast<char *>(malloc(data_size));
+    char* compressed_data = static_cast<char *>(malloc(data_size));
+    char* decompressed_data = static_cast<char *>(malloc(data_size));
+    is.read(data, data_size);
     if (algorithm == Algorithm::LZ4) {
-        auto compressed_size = LZ4_compress_default(data, compressed_data, size, size);
-        LZ4_decompress_safe(compressed_data, decompressed_data, compressed_size, size);
+        auto compressed_size = LZ4_compress_default(data, compressed_data, data_size, data_size);
+        LZ4_decompress_safe(compressed_data, decompressed_data, compressed_size, data_size);
     } else if (algorithm == Algorithm::ZSTD1) {
-        auto compressed_size = (int) ZSTD_compress(compressed_data, size, data, size, 1);
-        ZSTD_decompress(decompressed_data, size, compressed_data, compressed_size);
+        auto compressed_size = (int) ZSTD_compress(compressed_data, data_size, data, data_size, 1);
+        ZSTD_decompress(decompressed_data, data_size, compressed_data, compressed_size);
     } else {
-        auto compressed_size = (int) ZSTD_compress(compressed_data, size, data, size, 7);
-        ZSTD_decompress(decompressed_data, size, compressed_data, compressed_size);
+        auto compressed_size = (int) ZSTD_compress(compressed_data, data_size, data, data_size, 7);
+        ZSTD_decompress(decompressed_data, data_size, compressed_data, compressed_size);
     }
 
-    assert(memcmp(data, decompressed_data, size) == 0);
+    assert(memcmp(data, decompressed_data, data_size) == 0);
 
     free(data);
     free(compressed_data);
@@ -44,36 +44,39 @@ struct Result {
     double compression_ratio;
 };
 
-Result testLZ4(char* data, char* compressed_data, int length) {
+Result testLZ4(char* data, char* compressed_data, char* decompressed_data, int length) {
     std::clock_t begin = clock();
-    int out_size = LZ4_compress_default(data, compressed_data, length, length);
+    int compressed_size = LZ4_compress_default(data, compressed_data, length, length);
+    LZ4_decompress_safe(compressed_data, decompressed_data, compressed_size, length);
     std::clock_t end = clock();
 
     return {
         ((end - begin) * 1000) / CLOCKS_PER_SEC,
-        (double)length / out_size
+        (double)length / compressed_size
     };
 }
 
-Result testZSTD1(char* data, char* compressed_data, int length) {
+Result testZSTD1(char* data, char* compressed_data, char* decompressed_data, int length) {
     std::clock_t begin = clock();
-    std::size_t out_size = ZSTD_compress(compressed_data, length, data, length, 1);
+    std::size_t compressed_size = ZSTD_compress(compressed_data, length, data, length, 1);
+    ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
     std::clock_t end = clock();
 
     return {
             ((end - begin) * 1000) / CLOCKS_PER_SEC,
-            (double)length / (double)out_size
+            (double)length / (double)compressed_size
     };
 }
 
-Result testZSTD7(char* data, char* compressed_data, int length) {
+Result testZSTD7(char* data, char* compressed_data, char* decompressed_data, int length) {
     std::clock_t begin = clock();
-    std::size_t out_size = ZSTD_compress(compressed_data, length, data, length, 7);
+    std::size_t compressed_size = ZSTD_compress(compressed_data, length, data, length, 7);
+    ZSTD_decompress(decompressed_data, length, compressed_data, compressed_size);
     std::clock_t end = clock();
 
     return {
             ((end - begin) * 1000) / CLOCKS_PER_SEC,
-            (double)length / (double)out_size
+            (double)length / (double)compressed_size
     };
 }
 
@@ -88,30 +91,34 @@ int main(int argc, char* argv[]) {
     for (int k = 1; k < argc; ++k) {
         std::filesystem::path path(argv[k]);
 
-//        testCorrectness(path, Algorithm::LZ4);
-//        testCorrectness(path, Algorithm::ZSTD1);
-//        testCorrectness(path, Algorithm::ZSTD7);
+        if (k == 1) {
+            testCorrectness(path, Algorithm::LZ4);
+            testCorrectness(path, Algorithm::ZSTD1);
+            testCorrectness(path, Algorithm::ZSTD7);
+        }
 
         speed << path.filename() << ',';
         compression << path.filename() << ',';
-        int length = (int)file_size(path);
-        char* data = static_cast<char *>(malloc(length));
+        int data_size = (int)file_size(path);
+        char* data = static_cast<char *>(malloc(data_size));
         std::ifstream input(path, std::ifstream::in | std::ifstream::binary);
-        input.read(data, length);
-        char* compressed_data = static_cast<char *>(malloc(length));
+        input.read(data, data_size);
+        char* compressed_data = static_cast<char *>(malloc(data_size));
+        char* decompressed_data = static_cast<char *>(malloc(data_size));
 
-        auto result = testLZ4(data, compressed_data, length);
+        auto result = testLZ4(data, compressed_data, decompressed_data, data_size);
         speed << result.milliseconds << ',';
         compression << result.compression_ratio << ',';
 
-        result = testZSTD1(data, compressed_data, length);
+        result = testZSTD1(data, compressed_data, decompressed_data, data_size);
         speed << result.milliseconds << ',';
         compression << result.compression_ratio << ',';
 
-        result = testZSTD7(data, compressed_data, length);
+        result = testZSTD7(data, compressed_data, decompressed_data, data_size);
         speed << result.milliseconds << '\n';
         compression << result.compression_ratio << '\n';
 
+        free(decompressed_data);
         free(compressed_data);
         free(data);
     }

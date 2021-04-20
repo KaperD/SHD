@@ -9,7 +9,7 @@ d['lz4'] = []
 d['zstd_lvl1'] = []
 d['zstd_lvl7'] = []
 
-dictReader = csv.DictReader(open('cmake-build-debug/compression.csv', 'r'), fieldnames = ['filename', 'lz4', 'zstd_lvl1', 'zstd_lvl7'], delimiter = ',', quotechar = '"')
+dictReader = csv.DictReader(open('cmake-build-debug/speed.csv', 'r'), fieldnames = ['filename', 'lz4', 'zstd_lvl1', 'zstd_lvl7'], delimiter = ',', quotechar = '"')
 
 t = True
 for row in dictReader:
@@ -26,7 +26,7 @@ data = {'lz4': d['lz4'],
         'zstd_lvl1': d['zstd_lvl1'],
         'zstd_lvl7': d['zstd_lvl7']}
 df = pd.DataFrame(data)
-df.plot(kind='bar', title='Compression', xlabel='File name', ylabel='Compression ratio') #, logy=True
+df.plot(kind='bar', title='Speed of compression + decompression', xlabel='File name', ylabel='Time in milliseconds')
 
 index = np.arange(len(d['filename']))
 plt.xticks(index, d['filename'], rotation=50)
